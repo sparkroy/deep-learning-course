@@ -68,10 +68,16 @@ def train_model(device, dataloaders, dataset_sizes, model, criterion, optimizer,
                 # Perform feedforward operation using model, get the labels using torch.max, and   #
                 # compule loss using the criterion function                                        #
                 ####################################################################################
-            
+                    #y_hat = model.forward(inputs)
+                    ##???? Why not forward???
+                    outputs = model(inputs)
+                    _, preds = torch.max(outputs, 1) 
+                    loss = criterion(outputs, labels)
 
                 # backward + optimize only if in training phase
-
+                    if phase=='train':
+                        loss.backward()
+                        optimizer.step()
 
                 ####################################################################################
                 #                             END OF YOUR CODE                                     #
@@ -132,7 +138,8 @@ def visualize_model(device, dataloaders, model, class_names, num_images=6):
             ####################################################################################
             # Perform feedforward operation using model and get the labels using torch.max     #
             ####################################################################################
-            
+            outputs = model(inputs)
+            _, preds = torch.max(outputs, 1)
 
             ####################################################################################
             #                             END OF YOUR CODE                                     #
@@ -159,7 +166,9 @@ def finetune(device, dataloaders, dataset_sizes, class_names):
     ####################################################################################
     # Replace last layer in with a 2-label linear layer                                #
     ####################################################################################
-    
+    num_classes = 2
+    num_in_features = model_ft.fc.in_features
+    model_ft.fc = nn.Linear(num_in_features, num_classes)
 
     ####################################################################################
     #                             END OF YOUR CODE                                     #
@@ -171,8 +180,9 @@ def finetune(device, dataloaders, dataset_sizes, class_names):
     ####################################################################################
     # Set the criterion function for multi-class classification, and set the optimizer #
     ####################################################################################
-
-
+    criterion = nn.CrossEntropyLoss()
+    params_to_update = model_ft.parameters()
+    optimizer_ft = optim.SGD(params_to_update, lr=0.001, momentum=0.9)
 
     ####################################################################################
     #                             END OF YOUR CODE                                     #
@@ -200,7 +210,8 @@ def freeze(device, dataloaders, dataset_sizes, class_names):
     # Freeze all parameterws in the pre-trained network.                               #
     # Hint: go over all parameters and set requires_grad to False                      #
     ####################################################################################
-    
+    for param in model_conv.parameters():
+        param.requires_grad = False
 
     ####################################################################################
     #                             END OF YOUR CODE                                     #
@@ -213,7 +224,9 @@ def freeze(device, dataloaders, dataset_sizes, class_names):
     # Replace last layer in with a 2-label linear layer                                #
     ####################################################################################
     # Parameters of newly constructed modules have requires_grad=True by default
-    
+    num_classes = 2
+    num_in_features = model_conv.fc.in_features
+    model_conv.fc = nn.Linear(num_in_features, num_classes)
 
     ####################################################################################
     #                             END OF YOUR CODE                                     #
@@ -226,8 +239,13 @@ def freeze(device, dataloaders, dataset_sizes, class_names):
     # Set the criterion function for multi-class classification, and set the optimizer.#
     # Note: Make sure that the optimizer only updates the parameters of the last layer #
     ####################################################################################
-
+    criterion = nn.CrossEntropyLoss()
     
+    params_to_update = []
+    for name,param in model_conv.named_parameters():
+        if param.requires_grad == True:
+            params_to_update.append(param)
+    optimizer_conv = optim.SGD(params_to_update, lr=0.001, momentum=0.9)
 
     ####################################################################################
     #                             END OF YOUR CODE                                     #
