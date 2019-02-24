@@ -81,6 +81,8 @@ def content_loss(content_weight, content_current, content_target):
     Returns:
     - scalar content loss
     """
+    loss = content_weight * torch.sum((content_current - content_target)**2)
+    return loss
     
 
 
@@ -127,8 +129,11 @@ def style_loss(feats, style_layers, style_targets, style_weights):
     """
     # Hint: you can do this with one for loop over the style layers, and should
     # not be very much code (~5 lines). You will need to use your gram_matrix function.
-
-
+    loss = 0
+    for i in range(len(style_layers)):
+        layer_loss = torch.sum((style_targets[i] - gram_matrix(feats[style_layers[i]].clone()))**2)
+        loss += style_weights[i] * layer_loss
+    return loss
 
 def tv_loss(img, tv_weight):
     """
@@ -143,8 +148,10 @@ def tv_loss(img, tv_weight):
       for img weighted by tv_weight.
     """
     # Your implementation should be vectorized and not require any loops!
-
-
+    loss_over_w = torch.sum((img[0,:,:,1:] - img[0,:,:,:-1])**2)
+    loss_over_h = torch.sum((img[0,:,1:]-img[0,:,:-1])**2)
+    loss = tv_weight * (loss_over_w + loss_over_h)
+    return loss
 
 def style_transfer(content_image, style_image, image_size, style_size, content_layer, content_weight,
                    style_layers, style_weights, tv_weight, init_random = False):
@@ -219,6 +226,11 @@ def style_transfer(content_image, style_image, image_size, style_size, content_l
     plt.show()
     plt.figure()
     
+    #####
+    losses = []
+    t_axis = []
+    #####
+    
     for t in range(200):
         if t < 190:
             img.clamp_(-1.5, 1.5)
@@ -227,17 +239,25 @@ def style_transfer(content_image, style_image, image_size, style_size, content_l
         feats = extract_features(img_var, cnn)
         
         #TODO:Compute loss
-
-
-
+        #print(feats[content_layer].shape, content_target.shape)
+        #content_img_var or feats[content_layer]???
+        loss = tv_loss(img_var, tv_weight) + content_loss(content_weight, feats[content_layer], content_target) +\
+               style_loss(feats, style_layers, style_targets, style_weights)
+        loss.backward()
         # Perform gradient descents on our image values
         if t == decay_lr_at:
             optimizer = torch.optim.Adam([img_var], lr=decayed_lr)
         optimizer.step()
         
         print('Iteration %d, loss %g'%(t, loss))
+        
+        #####
+        losses.append(loss)
+        t_axis.append(t)
+        #####
+        
         if t % 100 == 0:
-            print('Iteration {}'.format(t))
+            print('Iteration {}'.format(t))            
             plt.axis('off')
             plt.imshow(deprocess(img.cpu()))
             plt.show()
@@ -245,6 +265,11 @@ def style_transfer(content_image, style_image, image_size, style_size, content_l
     plt.axis('off')
     plt.imshow(deprocess(img.cpu()))
     plt.show()
+    
+    #####
+    plt.plot(t_axis, losses)
+    plt.show()
+    #####
 
 def main():
     # Composition VII + Tubingen
