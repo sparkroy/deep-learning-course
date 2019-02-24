@@ -36,7 +36,21 @@ class SVM(object):
     # weights and biases using the keys 'W1' and 'b1' and second layer weights #
     # and biases (if any) using the keys 'W2' and 'b2'.                        #
     ############################################################################
-    pass
+    if hidden_dim== None:
+        W1 = np.random.normal(scale = weight_scale, size = (input_dim, 1))
+        b1 = np.zeros(1)
+        self.params['W1']=W1
+        self.params['b1']=b1
+    else:
+        W1 = np.random.normal(scale = weight_scale, size = (input_dim, hidden_dim))
+        b1 = np.zeros(hidden_dim)
+        self.params['W1']=W1
+        self.params['b1']=b1
+        
+        W2 = np.random.normal(scale = weight_scale, size = (hidden_dim, 1))
+        b2 = np.zeros(1)
+        self.params['W2']=W2
+        self.params['b2']=b2
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -66,7 +80,27 @@ class SVM(object):
     # TODO: Implement the forward pass for the model, computing the            #
     # scores for X and storing them in the scores variable.                    #
     ############################################################################
-    pass
+    hidden=False
+    #print('X',X.shape)
+    W1 = self.params['W1']
+    #print('W1',W1.shape)
+    b1= self.params['b1']
+    #print('b1',b1.shape)
+    fc_out, fc1_cache = fc_forward(X, W1, b1)
+    #print(W1)
+    #print('fc out',fc_out.shape)
+    #print('fc, x w b',fc1_cache[0].shape,fc1_cache[1].shape,fc1_cache[2].shape)
+    if fc_out.shape[1] != 1:
+        hidden = True
+        #has hidden
+        W2=self.params['W2']
+        b2=self.params['b2']
+        fc_out,relu_cache = relu_forward(fc_out)
+        fc_out, fc2_cache = fc_forward(fc_out, W2, b2)
+    #print(hidden)
+    scores = fc_out.reshape(-1)
+    #print(scores)
+    #print('##SCORE##',scores.shape)
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -83,9 +117,51 @@ class SVM(object):
     # Don't forget to add L2 regularization.                                   #
     #                                                                          #
     ############################################################################
-    pass
+    
+    loss, dx_1 = svm_loss(scores, y)
+    loss += 0.5 * self.reg * (np.linalg.norm(W1)**2)
+    dx_2 = dx_1.reshape(-1,1)
+    #print(dx.shape)
+    if hidden:
+        loss += 0.5 * self.reg * (np.linalg.norm(W2)**2)
+        dx_3, dW2, db2 = fc_backward(dx_2, fc2_cache)
+        grads['b2'] = db2
+        grads['W2'] = dW2 + self.reg * W2
+        dx_2 = relu_backward(dx_3, relu_cache)
+    #print(dx.shape, fc1_cache[0].shape,fc1_cache[1].shape,fc1_cache[2].shape)
+    dx_5, dW1, db1 = fc_backward(dx_2, fc1_cache)
+    grads['b1'] = db1
+    grads['W1'] = dW1 + self.reg * W1
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
 
     return loss, grads
+
+
+import pickle
+from solver import Solver
+with open('data.pkl', 'rb') as f:
+    d = pickle.load(f, encoding='latin1')
+X=d[0]
+y=d[1]
+
+data = {
+        'X_train': X[:500],
+        'y_train': y[:500],
+        'X_val': X[500:750],
+        'y_val': y[500:750]
+}
+'''
+model = SVM(input_dim=20, hidden_dim=None, weight_scale=1e-2, reg=0.1)
+solver = Solver(model, data, update_rule='sgd', optim_config={'learning_rate': 0.5,},
+                lr_decay=0.95, num_epochs=100, batch_size=10, print_every=100)
+'''
+model = SVM(input_dim=20, hidden_dim=200, weight_scale=1e-2, reg=0.1)
+solver = Solver(model, data, update_rule='sgd', optim_config={'learning_rate': 0.2,},
+                lr_decay=0.95, num_epochs=100, batch_size=10, print_every=100)
+
+solver.train()
+x_test=X[750:]
+y_test=y[750:]
+print(solver.check_accuracy(x_test, y_test, batch_size=100))

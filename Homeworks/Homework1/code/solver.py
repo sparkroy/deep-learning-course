@@ -212,7 +212,9 @@ class Solver(object):
         y_pred.append(np.argmax(scores, axis=1))
       elif len(scores.shape) == 1:
         y_pred.append((scores > 0).astype(int))
+    #print(scores)
     y_pred = np.hstack(y_pred)
+    #print(y_pred)
     acc = np.mean(y_pred == y)
 
     return acc
