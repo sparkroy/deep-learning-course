@@ -19,7 +19,7 @@ import pandas as pd
 
 
 ######################## csv #######################
-'''
+
 def create_csv(filename, labelled=True):
     lines = open(filename, encoding='utf-8').read().split('\n')
     if labelled:
@@ -35,7 +35,7 @@ smallt = create_csv('data/test.txt')
 smallt.to_csv("data/test.csv",index=False)
 small_un = create_csv('data/unlabelled.txt', False)
 small_un.to_csv("data/unlabelled.csv",index=False)
-'''
+
 
 
 ######################## classes #######################
@@ -121,7 +121,7 @@ class my_model(nn.Module):
 TEXT = Field(include_lengths=True)
 LABEL = Field(sequential=False, use_vocab=False)
 
-### ??? only 3 splits here
+### 
 train_ds, test_ds, un_ds = TabularDataset.splits(
         path='data/', train='train.csv',
         validation='test.csv', test='unlabelled.csv',

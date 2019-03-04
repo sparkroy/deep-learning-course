@@ -19,7 +19,7 @@ import pandas as pd
 
 
 ######################## csv #######################
-'''
+
 def create_csv(filename, labelled=True):
     lines = open(filename, encoding='utf-8').read().split('\n')
     if labelled:
@@ -35,7 +35,6 @@ smallt = create_csv('data/test.txt')
 smallt.to_csv("data/test.csv",index=False)
 small_un = create_csv('data/unlabelled.txt', False)
 small_un.to_csv("data/unlabelled.csv",index=False)
-'''
 
 
 ######################## classes #######################
@@ -53,7 +52,7 @@ class BatchGenerator:
             yield (X,y)
             
 class model_2(nn.Module):
-    def __init__(self, vocab, embedding_dim):
+    def __init__(self, vocab, embedding_dim, mode):
         super(model_2, self).__init__()
         self.vocab_size = len(vocab)
         self.embedding_dim = embedding_dim
@@ -65,7 +64,8 @@ class model_2(nn.Module):
         '''
         #for pretrain: pad_index=1
         self.emb = nn.Embedding(self.vocab_size, self.embedding_dim, padding_idx=1)
-        self.emb.weight.data.copy_(vocab.vectors)
+        if mode == "glove":
+            self.emb.weight.data.copy_(vocab.vectors)
         #freeze embedding weight
         #self.emb.weight.requires_grad = False
         
@@ -80,40 +80,36 @@ class model_2(nn.Module):
         #print('seq_len: ',seq.shape) #3, 4: batch_size, input_dim(max sentence length in batch)
         embs = self.emb(seq) #3, 4, 5: batch_size, seq_len, hidden_dim
         
-        '''
-        ##for later
-        embs = embs.transpose(0,1)
-        print(vocab_size)
-        print(embs.shape) #4,3,5: input_dim, batch_size, hidden_dim
-        #print('lengths: ',lengths)
-        
-        #embs = pack_padded_sequence(embs, lengths) # (4+4+2), 5: each length sum, hidden_dim
-        #print("padded: ",embs.data)
-        '''
-        
         embs = embs.transpose(1,2)
         #print('embedding after transpose: ', embs.shape) #want: 3,5,4
         #print(embs)
         avg_pool = torch.sum(embs, dim=2)/Variable(torch.LongTensor(lengths).view(-1,1)).float()
-        print(avg_pool.shape)
+        #print(avg_pool.shape)
         out = self.fc(avg_pool)
         return out         
 
 
 ########################## preprocess ###############
+#######!!!!!!! modify mode here !!!!!!!!#############
+mode = "q2"
+#######!!!!!!! modify mode here !!!!!!!!#############
+#glove mode is for q3, pretrained. else it is for q2.
+
 TEXT = Field(include_lengths=True)
 LABEL = Field(sequential=False, use_vocab=False)
 
-### ??? only 3 splits here
+### 
 train_ds, test_ds, un_ds = TabularDataset.splits(
         path='data/', train='train.csv',
         validation='test.csv', test='unlabelled.csv',
         format='csv', fields=[('text', TEXT), ('label', LABEL)], skip_header=True)
-'''
-TEXT.build_vocab(train_ds)
-'''
-#use pretrained
-TEXT.build_vocab(train_ds, vectors = 'glove.6B.100d')
+
+if mode == "glove":
+    #use pretrained
+    print("GLOVE!")
+    TEXT.build_vocab(train_ds, vectors = 'glove.6B.100d')
+else:
+    TEXT.build_vocab(train_ds)
 
 
 vocab = TEXT.vocab
@@ -146,7 +142,7 @@ n_out = 2
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #device = torch.device('cpu')
 
-net = model_2(vocab, embedding_dim).to(device)
+net = model_2(vocab, embedding_dim, mode).to(device)
 criterion = nn.CrossEntropyLoss()
 #criterion = nn.NLLLoss()
 optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=learning_rate)
@@ -210,7 +206,7 @@ with torch.no_grad():
         print(predicted)
         #all_predictions.append(predicted)
 print("prediction used: ", time.time() - pred_start)
-with open('data/prediction_m3.txt', 'w') as f:
+with open('data/predictions'+mode+'.txt', 'w') as f:
     for i in predicted:
         f.write(str(int(i)))
         f.write('\n')
